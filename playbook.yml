@@ -1,0 +1,46 @@
+---
+  - hosts: localhost
+    become: true
+    vars:
+      db_username: "more-recipes"
+      password: "more-recipes"
+      db: "more-recipes"
+    tasks:
+    - name: Install postgresql and neccesary packages for postgresql
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: true
+      loop:
+        - postgresql
+        - libpq-dev
+        - python-psycopg2
+    - name: Create more-recipes database
+      postgresql_db:
+        name: More-recipes
+      become: true
+      become_user: postgres
+    - name: Create a user for more-recipes database
+      postgresql_user:
+        name: more-recipes
+        password: more-recipes
+        db: More-recipes
+        priv: ALL
+        state:  present
+      become: true
+      become_user: postgres
+    - name: Update postgresql.conf configuration
+      lineinfile:
+        path: /etc/postgresql/9.5/main/postgresql.conf
+        regexp: '^#listen_addresses = '
+        line: "listen_addresses = '*'"
+    - name: Update local connections in pg_hba.conf file
+      blockinfile:
+        dest: /etc/postgresql/9.5/main/pg_hba.conf
+        block: |
+          host    all             all             127.0.0.1/32            md5
+          host    all             all             0.0.0.0/0               md5 
+    - name: Start postgresql service
+      service:
+        name: postgresql
+        state: started
